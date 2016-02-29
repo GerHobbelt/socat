@@ -273,13 +273,12 @@ const struct optdesc opt_termios_rawer     = { "termios-rawer",     "rawer",    
 
 #ifdef HAVE_TERMIOS_ISPEED
 #if defined(ISPEED_OFFSET) && (ISPEED_OFFSET != -1)
-#if defined(OSPEED_OFFSET) && (OSPEED_OFFSET != -1)
 const struct optdesc opt_ispeed = { "ispeed", NULL, OPT_ISPEED, GROUP_TERMIOS, PH_FD, TYPE_UINT, OFUNC_TERMIOS_SPEED, ISPEED_OFFSET };
+#endif
+#if defined(OSPEED_OFFSET) && (OSPEED_OFFSET != -1)
 const struct optdesc opt_ospeed = { "ospeed", NULL, OPT_OSPEED, GROUP_TERMIOS, PH_FD, TYPE_UINT, OFUNC_TERMIOS_SPEED, OSPEED_OFFSET };
 #endif
-#endif
 #endif /* HAVE_TERMIOS_ISPEED */
-
 
 int xiotermiosflag_applyopt(int fd, struct opt *opt) {
    int result;
