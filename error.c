@@ -1,5 +1,5 @@
 /* source: error.c */
-/* Copyright Gerhard Rieger */
+/* Copyright Gerhard Rieger and contributors (see file CHANGES) */
 /* Published under the GNU General Public License V.2, see file COPYING */
 
 /* the logging subsystem */
@@ -14,8 +14,8 @@
 #include "snprinterr.h"
 
 #include "error.h"
-#include "sysincludes.h"
 #include "sycls.h"
+
 
 /* translate MSG level to SYSLOG level */
 int syslevel[] = {
@@ -232,7 +232,7 @@ void msg(int level, const char *format, ...) {
       diag_flush();
    }
 
-   if (level < diagopts.msglevel)  { va_end(ap); return; }
+   if (level < diagopts.msglevel)  { return; }
    va_start(ap, format);
 
    /* we do only a minimum in the outer parts which may run in a signal handler

@@ -1,5 +1,5 @@
 /* source: sysutils.c */
-/* Copyright Gerhard Rieger */
+/* Copyright Gerhard Rieger and contributors (see file CHANGES) */
 /* Published under the GNU General Public License V.2, see file COPYING */
 
 /* translate socket addresses into human readable form */
@@ -711,7 +711,7 @@ int xiosetenv(const char *varname, const char *value, int overwrite, const char 
    l += 1;
    strncat(envname+l, varname, XIO_ENVNAMELEN-l-1);
    return _xiosetenv(envname, value, overwrite, sep);
-#  undef ENVNAMELEN
+#  undef XIO_ENVNAMELEN
 }
 
 int xiosetenv2(const char *varname, const char *varname2, const char *value,

@@ -1,6 +1,6 @@
 #! /bin/bash
 # source: test.sh
-# Copyright Gerhard Rieger
+# Copyright Gerhard Rieger and contributors (see file CHANGES)
 # Published under the GNU General Public License V.2, see file COPYING
 
 # perform lots of tests on socat
@@ -14,10 +14,12 @@
 val_t=0.1
 NUMCOND=true
 #NUMCOND="test \$N -gt 70"
+VERBOSE=
 while [ "$1" ]; do
     case "X$1" in
 	X-t?*) val_t="${1#-t}" ;;
 	X-t)   shift; val_t="$1" ;;
+	X-v)   VERBOSE=1 ;; 	# show commands
 	X-n?*) NUMCOND="test \$N -eq ${1#-n}" ;;
 	X-n)   shift; NUMCOND="test \$N -eq $1" ;;
 	X-N?*) NUMCOND="test \$N -gt ${1#-N}" ;;
@@ -1610,20 +1612,21 @@ testecho () {
 #    kill $rc2 2>/dev/null
     if [ "$(cat "$td/test$N.rc")" != 0 ]; then
 	$PRINTF "$FAILED: $TRACE $SOCAT:\n"
-	echo "$TRACE $SOCAT $opts $arg1 $arg2"
-	cat "$te"
+	echo "$TRACE $SOCAT $opts $arg1 $arg2" >&2
+	cat "$te" >&2
 	numFAIL=$((numFAIL+1))
 	listFAIL="$listFAIL $N"
     elif echo "$da" |diff - "$tf" >"$tdiff" 2>&1; then
 	$PRINTF "$OK\n"
-	if [ -n "$debug" ]; then cat $te; fi
+	if [ "$verbose" ]; then echo "$SOCAT $opts $arg1 $arg2" >&2; fi
+	if [ -n "$debug" ]; then cat $te >&2; fi
 	numOK=$((numOK+1))
     else
 	$PRINTF "$FAILED:\n"
-	echo "$TRACE $SOCAT $opts $arg1 $arg2"
-	cat "$te"
-	echo diff:
-	cat "$tdiff"
+	echo "$TRACE $SOCAT $opts $arg1 $arg2" >&2
+	cat "$te" >&2
+	echo diff: >&2
+	cat "$tdiff" >&2
 	numFAIL=$((numFAIL+1))
 	listFAIL="$listFAIL $N"
     fi
@@ -2270,6 +2273,16 @@ gentestdsacert () {
     openssl dhparam -dsaparam -out $name-dh.pem 1024 >/dev/null 2>&1
     openssl req -newkey dsa:$name-dsa.pem -keyout $name.key -nodes -x509 -config $TESTCERT_CONF -out $name.crt -days 3653 >/dev/null 2>&1
     cat $name-dsa.pem $name-dh.pem $name.key $name.crt >$name.pem
+}
+
+# generate a test EC key and certificate
+gentesteccert () {
+    local name="$1"
+    if [ -s $name.key -a -s $name.crt -a -s $name.pem ]; then return; fi
+    openssl ecparam -name secp521r1 -out $name-ec.pem >/dev/null 2>&1
+    chmod 0400 $name-ec.pem
+    openssl req -newkey ec:$name-ec.pem -keyout $name.key -nodes -x509 -config $TESTCERT_CONF -out $name.crt -days 3653 >/dev/null 2>&1
+    cat $name-ec.pem $name.key $name.crt >$name.pem
 }
 
 gentestcert6 () {
@@ -10644,7 +10657,7 @@ TEST="$NAME: test the setsockopt-int option"
 # (generically specified) SO_REUSEADDR socket options did not work
 # process 3 connects to this port; only if it is successful the test is ok
 if ! eval $NUMCOND; then :;
-elif [ -z "SO_REUSEADDR" ]; then
+elif [ -z "$SO_REUSEADDR" ]; then
     # we use the numeric value of SO_REUSEADDR which might be system dependent
     $PRINTF "test $F_n $TEST... ${YELLOW}value of SO_REUSEADDR not known${NORMAL}\n" $N
     numCANT=$((numCANT+1))
@@ -10678,6 +10691,8 @@ if ! echo "$da" |diff - "$tf"; then
     numCANT=$((numCANT+1))
 elif [ $rc3 -ne 0 ]; then
     $PRINTF "$FAILED: $TRACE $SOCAT:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
     echo "$CMD2 &"
     echo "$CMD3"
     cat "${te}2" "${te}3"
@@ -10685,6 +10700,8 @@ elif [ $rc3 -ne 0 ]; then
     listFAIL="$listFAIL $N"
 elif ! echo "$da" |diff - "${tf}3"; then
     $PRINTF "$FAILED: $TRACE $SOCAT:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
     echo "$CMD2 &"
     echo "$CMD3"
     echo "$da" |diff - "${tf}3"
@@ -12176,6 +12193,10 @@ kill $pid0 2>/dev/null; wait
 if echo "$da" |diff - "${tf}1"; then
     $PRINTF "$OK\n"
     numOK=$((numOK+1))
+    if [ "$VERBOSE" ]; then
+	echo "  $CMD0"
+	echo "  echo \"$da\" |$CMD1"
+    fi
 else
     $PRINTF "$FAILED\n"
     echo "$CMD0 &"
@@ -12194,7 +12215,8 @@ N=$((N+1))
 done
 
 
-# give a description of what is tested (a bugfix, a new feature...)
+# Address options fdin and fdout were silently ignored when not applicable
+# due to -u or -U option. Now these combinations are caught as errors.
 NAME=FDOUT_ERROR
 case "$TESTS" in
 *%$N%*|*%functions%*|*%bugs%*|*%socket%*|*%$NAME%*)
@@ -12217,6 +12239,309 @@ else
     echo "$CMD"
     cat "${te}"
     echo "command did not terminate with error!"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+fi
+fi # NUMCOND
+ ;;
+esac
+PORT=$((PORT+1))
+N=$((N+1))
+
+
+# test if failure exit code of SYSTEM invocation causes socat to also exit
+# with !=0
+NAME=SYSTEM_RC
+case "$TESTS" in
+*%$N%*|*%functions%*|*%system%*|*%$NAME%*)
+TEST="$NAME: promote failure of SYSTEM"
+# run socat with SYSTEM:false and check if socat exits with !=0
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts /dev/null SYSTEM:false"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0"
+rc0=$?
+if [ $rc0 -eq 0 ]; then
+    $PRINTF "$FAILED\n"
+    echo "$CMD0"
+    cat "${te}0"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+else
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+fi
+fi # NUMCOND
+ ;;
+esac
+PORT=$((PORT+1))
+N=$((N+1))
+
+
+# test if failure exit code of EXEC invocation causes socat to also exit
+# with !=0
+NAME=EXEC_RC
+case "$TESTS" in
+*%$N%*|*%functions%*|*%exec%*|*%$NAME%*)
+TEST="$NAME: promote failure of EXEC"
+# run socat with EXEC:false and check if socat exits with !=0
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts EXEC:false /dev/null"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0"
+rc0=$?
+if [ $rc0 -eq 0 ]; then
+    $PRINTF "$FAILED\n"
+    echo "$CMD0"
+    cat "${te}0"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+else
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+fi
+fi # NUMCOND
+ ;;
+esac
+PORT=$((PORT+1))
+N=$((N+1))
+
+
+# test the so-reuseaddr option
+NAME=SO_REUSEADDR
+case "$TESTS" in
+*%$N%*|*%functions%*|*%ip4%*|*%tcp%*|*%socket%*|*%$NAME%*)
+TEST="$NAME: test the so-reuseaddr option"
+# process 0 provides a tcp listening socket with so-reuseaddr;
+# process 1 connects to this port; thus the port is connected but no longer
+# listening
+# process 2 tries to listen on this port with SO_REUSEADDR, will fail if the
+# SO_REUSEADDR socket options did not work
+# process 3 connects to this port; only if it is successful the test is ok
+if ! eval $NUMCOND; then :; else
+tp="$PORT"
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts TCP4-L:$tp,so-reuseaddr PIPE"
+CMD1="$TRACE $SOCAT $opts - TCP:localhost:$tp"
+CMD2="$CMD0"
+CMD3="$CMD1"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0" &
+pid0=$!
+waittcp4port $tp 1
+(echo "$da"; sleep 3) |$CMD1 >"$tf" 2>"${te}1" &	# this should always work
+pid1=$!
+usleep 1000000
+$CMD2 >/dev/null 2>"${te}2" &
+pid2=$!
+waittcp4port $tp 1
+(echo "$da") |$CMD3 >"${tf}3" 2>"${te}3"
+rc3=$?
+kill $pid0 $pid1 $pid2 2>/dev/null; wait
+if ! echo "$da" |diff - "$tf"; then
+    $PRINTF "${YELLOW}phase 1 failed${NORMAL}\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    numCANT=$((numCANT+1))
+elif [ $rc3 -ne 0 ]; then
+    $PRINTF "$FAILED: $TRACE $SOCAT:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    echo "$CMD2 &"
+    echo "$CMD3"
+    cat "${te}2" "${te}3"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+elif ! echo "$da" |diff - "${tf}3"; then
+    $PRINTF "$FAILED: $TRACE $SOCAT:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    echo "$CMD2 &"
+    echo "$CMD3"
+    echo "$da" |diff - "${tf}3"
+    numCANT=$((numCANT+1))
+else
+    $PRINTF "$OK\n"
+    if [ -n "$debug" ]; then cat "${te}0" "${te}1" "${te}2" "${te}3"; fi
+    numOK=$((numOK+1))
+fi
+fi # NUMCOND, SO_REUSEADDR
+ ;;
+esac
+PORT=$((PORT+1))
+N=$((N+1))
+
+
+# test the so-reuseport option
+NAME=SO_REUSEPORT
+case "$TESTS" in
+*%$N%*|*%functions%*|*%ip4%*|*%tcp%*|*%socket%*|*%$NAME%*)
+TEST="$NAME: test the so-reuseport option"
+# process 0 provides a tcp listening socket with so-reuseport;
+# process 1 provides an equivalent tcp listening socket with so-reuseport;
+# process 2 connects to this port and transfers data
+# process 3 connects to this port and transfers data
+# test succeeds when both data transfers work
+if ! eval $NUMCOND; then :; else
+tp="$PORT"
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da2="test$N $(date) $RANDOM"
+da3="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts TCP4-L:$tp,so-reuseport PIPE"
+CMD1="$CMD0"
+CMD2="$TRACE $SOCAT $opts - TCP:localhost:$tp"
+CMD3="$CMD2"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0" &
+pid0=$!
+$CMD1 >/dev/null 2>"${te}1" &
+pid1=$!
+waittcp4port $tp 1
+(echo "$da2") |$CMD2 >"${tf}2" 2>"${te}2"	# this should always work
+rc2=$?
+(echo "$da3") |$CMD3 >"${tf}3" 2>"${te}3"
+rc3=$?
+kill $pid0 $pid1 $pid2 2>/dev/null; wait
+if ! echo "$da2" |diff - "${tf}2"; then
+    $PRINTF "${YELLOW}phase 1 failed${NORMAL}\n"
+    echo "$CMD0 &"
+    echo "$CMD1 &"
+    echo "$CMD2"
+    cat "${te}0" "${te}1" "${te}2"
+    numCANT=$((numCANT+1))
+elif [ $rc3 -ne 0 ]; then
+    $PRINTF "$FAILED:\n"
+    echo "$CMD0 &"
+    echo "$CMD1 &"
+    echo "$CMD2"
+    echo "$CMD3"
+    cat "${te}0" "${te}1" "${te}2" "${te}3"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+elif ! echo "$da2" |diff - "${tf}2"; then
+    $PRINTF "$FAILED:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    echo "$CMD2"
+    echo "$CMD3"
+    cat "${te}0" "${te}1" "${te}2" "${te}3"
+    echo "$da2" |diff - "${tf}2"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+elif ! echo "$da3" |diff - "${tf}3"; then
+    $PRINTF "$FAILED:\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    echo "$CMD2"
+    echo "$CMD3"
+    cat "${te}0" "${te}1" "${te}2" "${te}3"
+    echo "$da3" |diff - "${tf}3"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+else
+    $PRINTF "$OK\n"
+    if [ -n "$debug" ]; then cat "${te}0" "${te}1" "${te}2" "${te}3"; fi
+    numOK=$((numOK+1))
+fi
+fi # NUMCOND, SO_REUSEPORT
+ ;;
+esac
+PORT=$((PORT+1))
+
+
+# Programs invoked with EXEC, nofork, and -u or -U had stdin and stdout assignment swapped. 
+NAME=EXEC_NOFORK_UNIDIR
+case "$TESTS" in
+*%$N%*|*%functions%*|*%bugs%*|*%exec%*|*%$NAME%*)
+TEST="$NAME: Programs invoked with EXEC, nofork, and -u or -U had stdin and stdout assignment swapped"
+# invoke a simple echo command with EXEC, nofork, and -u
+# expected behaviour: output appears on stdout
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts -u /dev/null EXEC:\"echo \\\"$da\\\"\",nofork"
+printf "test $F_n $TEST... " $N
+eval $CMD0 >"${tf}0" 2>"${te}0"
+rc1=$?
+if echo "$da" |diff - "${tf}0" >"$tdiff"; then
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+else
+    $PRINTF "$FAILED\n"
+    echo "$CMD0"
+    cat "${te}0"
+    cat "$tdiff"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+fi
+fi # NUMCOND
+ ;;
+esac
+#PORT=$((PORT+1))
+N=$((N+1))
+
+
+# OpenSSL ECDHE ciphers were introduced in socat 1.7.3.0 but in the same release
+# they were broken by a porting effort. This test checks if OpenSSL ECDHE works
+NAME=OPENSSL_ECDHE
+case "$TESTS" in
+*%$N%*|*%functions%*|*%bugs%*|*%openssl%*|*%socket%*|*%$NAME%*)
+TEST="$NAME: test OpenSSL ECDHE"
+# generate a ECDHE key, start an OpenSSL server, connect with a client and try to
+# pass data
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+TESTSRV=./testsrvec
+gentesteccert $TESTSRV
+CMD0="$TRACE $SOCAT $opts OPENSSL-LISTEN:$PORT,reuseaddr,cert=testsrvec.crt,key=$TESTSRV.pem,verify=0 PIPE"
+CMD1="$TRACE $SOCAT $opts - OPENSSL-CONNECT:$LOCALHOST:$PORT,cipher=ECDHE-ECDSA-AES256-GCM-SHA384,cafile=$TESTSRV.crt"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0" &
+pid0=$!
+waittcp4port $PORT 1
+echo "$da" |$CMD1 >"${tf}1" 2>"${te}1"
+rc1=$?
+kill $pid0 2>/dev/null; wait
+if [ $rc1 -ne 0 ]; then
+    $PRINTF "$FAILED\n"
+    echo "failure symptom: client error" >&2
+    echo "server and stderr:" >&2
+    echo "$CMD0 &"
+    cat "${te}0"
+    echo "client and stderr:" >&2
+    echo "$CMD1"
+    cat "${te}1"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+elif echo "$da" |diff - "${tf}1" >"$tdiff"; then
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+else
+    $PRINTF "$FAILED\n"
+    echo "server and stderr:" >&2
+    echo "$CMD1"
+    cat "${te}1"
+    echo "client and stderr:" >&2
+    echo "$CMD0 &"
+    cat "${te}0"
     numFAIL=$((numFAIL+1))
     listFAIL="$listFAIL $N"
 fi

@@ -1,5 +1,5 @@
 /* source: error.h */
-/* Copyright Gerhard Rieger */
+/* Copyright Gerhard Rieger and contributors (see file CHANGES) */
 /* Published under the GNU General Public License V.2, see file COPYING */
 
 #ifndef __error_h_included
@@ -229,8 +229,8 @@ struct diag_dgram {
 } ;
 
 extern sig_atomic_t diag_in_handler;
-extern int diag_immediate_msg;
-extern int diag_immediate_exit;
+extern sig_atomic_t diag_immediate_msg;
+extern sig_atomic_t diag_immediate_exit;
 
 extern void diag_set(char what, const char *arg);
 extern void diag_set_int(char what, int arg);

@@ -1,5 +1,5 @@
 /* source: config.h.in */
-/* Copyright Gerhard Rieger */
+/* Copyright Gerhard Rieger and contributors (see file CHANGES) */
 /* Published under the GNU General Public License V.2, see file COPYING */
 
 #ifndef __config_h_included
@@ -359,6 +359,9 @@
 /* Define if you have struct linger */
 #undef HAVE_STRUCT_LINGER
 
+/* Define if you have struct ip */
+#undef HAVE_STRUCT_IP
+
 /* Define if you have struct ip_mreq */
 #undef HAVE_STRUCT_IP_MREQ
 
@@ -446,6 +449,18 @@
 /* Define if you have the DTLSv1 client and server method functions */
 #undef HAVE_DTLSv1_client_method
 #undef HAVE_DTLSv1_server_method
+
+/* Define if you have the EC_KEY type */
+#undef HAVE_TYPE_EC_KEY
+
+/* Define if you have the OpenSSL RAND_egd function */
+#undef HAVE_RAND_egd
+
+/* Define if you have the OpenSSL DH_set0_pqg function */
+#undef HAVE_DH_set0_pqg
+
+/* Define if you have the OpenSSL ASN1_STRING_get0_data function */
+#undef HAVE_ASN1_STRING_get0_data
 
 /* Define if you have the flock function */
 #undef HAVE_FLOCK

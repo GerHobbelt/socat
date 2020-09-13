@@ -1,4 +1,70 @@
 
+corrections:
+	SIGSEGV and other signals could lead to a 100% CPU loop
+
+	Failing name resolution could lead to SIGSEGV
+	Thanks to Max for reporting this issue.
+
+	Include <stddef.h> for ptrdiff_t
+	Thanks to Jeroen Roovers for reporting this issue.
+
+	Building with --disable-sycls failed due to missing sslcls.h defines
+
+	Socat hung when configured with --disable-sycls.
+
+	Some minor corrections with includes etc.
+
+	Option so-reuseport did not work. Thanks to Some Raghavendra Prabhu
+	for sending a patch.
+
+	Programs invoked with EXEC, nofork, and -u or -U had stdin and stdout
+	incorrectly assigned
+	Test: EXEC_NOFORK_UNIDIR
+	Thanks to David Reiss for reporting this problem.
+
+	Socat exited with status 0 even when a program invoked with SYSTEM or
+	EXEC failed.
+	Tests: SYSTEM_RC EXEC_RC
+	Issue reported by Felix Winkelmann.
+
+porting:
+	Type conflict between int and sig_atomic_t between declaration and
+	definition of diag_immediate_type and diag_immediate_exit broke
+	compilation on FreeBSD 10.1 with clang. Thanks to Emanuel Haupt for
+	reporting this bug.
+
+	Socat failed to compile on platforms with OpenSSL without
+	DTLSv1_client_method or DTLSv1_server_method.
+	Thanks to Simon Matter for sending a patch.
+
+	NuttX OS headers do not provide struct ip, thus socat did not compile.
+	Made struct ip subject to configure.
+	Thanks to SP for reporting this issue.
+
+	Socat failed to compile with OpenSSL version 1.0.2d where
+	SSLv3_server_method and SSLv3_client_method are no longer defined.
+	Thanks to Mischa ter Smitten for reporting this issue and providing
+	a patch.
+
+	configure checked for OpenSSL EC_KEY assuming it is a define but it
+	is a type, thus OpenSSL ECDHE ciphers failed even on Linux.
+	Thanks to Andrey Arapov for reporting this bug.
+
+	Changes to make socat compile with OpenSSL 1.1. 
+	Thanks to Sebastian Andrzej Siewior e.a. from the Debian team for
+	providing the base patch.
+	Debian Bug#828550
+
+testing:
+	socks4echo.sh and socks4a-echo.sh hung with new bash with read -n
+
+	test.sh: stderr; option -v (verbose); FDOUT_ERROR description
+
+	improved proxy.sh - it now also takes hostnames
+
+legal:
+	Added contributors to copyright notices. Suggested by Matt Braithwaite.
+
 ####################### V 1.7.3.1:
 
 security:
