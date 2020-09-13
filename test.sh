@@ -67,6 +67,7 @@ export SOCAT_OPTS="$opts"
 #debug="1"
 debug=
 TESTS="$@"; export TESTS
+
 # for some tests we need a network interface
 if type ip >/dev/null 2>&1; then
     INTERFACE=$(ip r get 8.8.8.8 |grep ' dev ' |head -n 1 |sed "s/.*dev[[:space:]][[:space:]]*\([^[:space:]][^[:space:]]*\).*/\1/")
@@ -148,6 +149,20 @@ rm -f testsrv6.{crt,key,pem}
 CAT=cat
 OD_C="od -c"
 
+toupper () {
+    case ${BASH_VERSION:0:1} in
+	[1-3]) echo "$@" |tr a-z A-Z ;;
+	[4-9]) echo "${@^^*}" ;;
+    esac
+}
+
+tolower () {
+    case ${BASH_VERSION:0:1} in
+	[1-3]) echo "$@" |tr A-Z a-z ;;
+	[4-9]) echo "${@,,*}" ;;
+    esac
+}
+
 # precision sleep; takes seconds with fractional part
 psleep () {
     local T="$1"
@@ -168,7 +183,7 @@ if ! type usleep >/dev/null 2>&1 ||
 fi
 #USLEEP=usleep
 
-if type ping6; then
+if type ping6 >/dev/null 2>&1; then
     PING6=ping6
 else
     PING6="ping -6"
@@ -215,7 +230,7 @@ else
     SUBSTUSER="$(grep -v '^[^:]*:^[^:]*:0:' /etc/passwd |tail -n 1 |cut -d: -f1)"
 fi
 
-if type ip >/dev/null; then
+if type ip >/dev/null 2>&1; then
     if ip -V |grep -q "^ip utility, iproute2-ss"; then
 	IP=$(which ip)
     else
@@ -223,7 +238,7 @@ if type ip >/dev/null; then
     fi
 fi
 
-if type ss >/dev/null; then
+if type ss >/dev/null 2>&1; then
     if ss -V |grep -q "^ss utility, iproute2-ss"; then
 	SS=$(which ss)
     else
@@ -11393,7 +11408,7 @@ N=$((N+1))
 
 while read KEYW FEAT ADDR IPPORT; do
 if [ -z "$KEYW" ]|| [[ "$KEYW" == \#* ]]; then continue; fi
-RUNS=${KEYW,,*}
+RUNS=$(tolower $KEYW)
 PROTO=$KEYW
 proto="$(echo "$PROTO" |tr A-Z a-z)"
 # test the max-children option on really connection oriented sockets
@@ -11410,7 +11425,7 @@ elif ! testaddrs "$FEAT" >/dev/null; then
     $PRINTF "test $F_n $TEST... ${YELLOW}$FEAT not available${NORMAL}\n" $N
     numCANT=$((numCANT+1))
 elif ! runs$RUNS >/dev/null; then
-    $PRINTF "test $F_n $TEST... ${YELLOW}${RUNS^^*} not available${NORMAL}\n" $N
+    $PRINTF "test $F_n $TEST... ${YELLOW}$(toupper $RUNS) not available${NORMAL}\n" $N
     numCANT=$((numCANT+1))
 else
 case "X$IPPORT" in
@@ -11475,7 +11490,7 @@ UNIX  unix  $td/test\$N.server -
 
 while read KEYW FEAT ADDR IPPORT SHUT; do
 if [ -z "$KEYW" ]|| [[ "$KEYW" == \#* ]]; then continue; fi
-RUNS=${KEYW,,*}
+RUNS=$(tolower $KEYW)
 PROTO=$KEYW
 proto="$(echo "$PROTO" |tr A-Z a-z)"
 # test the max-children option on pseudo connected sockets
@@ -11493,7 +11508,7 @@ elif ! testaddrs "$FEAT" >/dev/null; then
     $PRINTF "test $F_n $TEST... ${YELLOW}$FEAT not available${NORMAL}\n" $N
     numCANT=$((numCANT+1))
 elif ! runs$RUNS >/dev/null; then
-    $PRINTF "test $F_n $TEST... ${YELLOW}${RUNS^^*} not available${NORMAL}\n" $N
+    $PRINTF "test $F_n $TEST... ${YELLOW}$(toupper $RUNS) not available${NORMAL}\n" $N
     numCANT=$((numCANT+1))
 else
 case "X$IPPORT" in
@@ -11877,7 +11892,7 @@ N=$((N+1))
 while read ssldist MODE MODULE FIELD TESTADDRESS PEERADDRESS VALUE; do
 if [ -z "$ssldist" ] || [[ "$ssldist" == \#* ]]; then continue; fi
 #
-SSLDIST=${ssldist^^*}
+SSLDIST=$(toupper $ssldist)
 NAME="ENV_${SSLDIST}_${MODE}_${MODULE}_${FIELD}"
 case "$TESTS" in
 *%$N%*|*%functions%*|*%ip4%*|*%ipapp%*|*%tcp%*|*%$ssldist%*|*%envvar%*|*%$NAME%*)
@@ -11974,9 +11989,9 @@ while read addr fileopt addropts proto diropt ADDR2; do
 if [ -z "$addr" ] || [[ "$addr" == \#* ]]; then continue; fi
 # some passive (listening...) filesystem based addresses did not implement the
 # umask option
-ADDR=${addr^^*}
+ADDR=$(toupper $addr)
 ADDR_=${ADDR/-/_}
-PROTO=${proto^^*}
+PROTO=$(toupper $proto)
 if [ "$diropt" = "." ]; then diropt=; fi
 if [ "$fileopt" = "." ]; then fileopt=; fi
 if [ "$addropts" = "." ]; then addropts=; fi
@@ -12047,9 +12062,9 @@ pipe          .       .        file     -u       FILE:/dev/null
 while read addr fileopt addropts proto diropt; do
 if [ -z "$addr" ] || [[ "$addr" == \#* ]]; then continue; fi
 # test if passive (listening...) filesystem based addresses implement option perm
-ADDR=${addr^^*}
+ADDR=$(toupper $addr)
 ADDR_=${ADDR/-/_}
-PROTO=${proto^^*}
+PROTO=$(toupper $proto)
 if [ "$diropt" = "." ]; then diropt=; fi
 if [ "$fileopt" = "." ]; then fileopt=; fi
 if [ "$addropts" = "." ]; then addropts=; fi
@@ -12119,9 +12134,9 @@ pty           link    .        file     .
 while read addr fileopt addropts proto diropt; do
 if [ -z "$addr" ] || [[ "$addr" == \#* ]]; then continue; fi
 # test if passive (listening...) filesystem based addresses implement option user
-ADDR=${addr^^*}
+ADDR=$(toupper $addr)
 ADDR_=${ADDR/-/_}
-PROTO=${proto^^*}
+PROTO=$(toupper $proto)
 if [ "$diropt" = "." ]; then diropt=; fi
 if [ "$fileopt" = "." ]; then fileopt=; fi
 if [ "$addropts" = "." ]; then addropts=; fi
@@ -12196,9 +12211,9 @@ while read addr fileopt addropts proto diropt crit ADDR2; do
 if [ -z "$addr" ] || [[ "$addr" == \#* ]]; then continue; fi
 # some passive (listening...) filesystem based addresses did not remove the file
 # system entry at the end
-ADDR=${addr^^*}
+ADDR=$(toupper $addr)
 ADDR_=${ADDR/-/_}
-PROTO=${proto^^*}
+PROTO=$(toupper $proto)
 if [ "$diropt" = "." ]; then diropt=; fi
 if [ "$fileopt" = "." ]; then fileopt=; fi
 if [ "$addropts" = "." ]; then addropts=; fi
@@ -12264,9 +12279,9 @@ while read addr fileopt addropts proto diropt crit ADDR2; do
 if [ -z "$addr" ] || [[ "$addr" == \#* ]]; then continue; fi
 # some passive (listening...) filesystem based addresses with fork did not remove
 # the file system entry at the end
-ADDR=${addr^^*}
+ADDR=$(toupper $addr)
 ADDR_=${ADDR/-/_}
-PROTO=${proto^^*}
+PROTO=$(toupper $proto)
 if [ "$diropt" = "." ]; then diropt=; fi
 if [ "$fileopt" = "." ]; then fileopt=; fi
 if [ "$addropts" = "." ]; then addropts=; fi
@@ -13005,7 +13020,7 @@ N=$((N+1))
 
 NAME=SOCAT_OPT_HINT
 case "$TESTS" in
-*%$N%*|*%socat%*|*%$NAME%*)
+*%$N%*|*%functions%*|*%$NAME%*)
 TEST="$NAME: check if merging single character options is rejected"
 if ! eval $NUMCOND; then :; else
 te="$td/test$N.stderr"
@@ -13023,6 +13038,115 @@ else
     listFAIL="$listFAIL $N"
 fi
 fi ;; # NUMCOND
+esac
+N=$((N+1))
+
+
+# test for a bug in Socat version 1.7.3.3 where
+# termios options of the first address were applied to the second address.
+NAME=TERMIOS_PH_ALL
+case "$TESTS" in
+*%$N%*|*%functions%*|*%bugs%*|*%termios%*|*%$NAME%*)
+TEST="$NAME: are termios options applied to the correct address"
+# add a termios option to the first address, a tty, and have a second address
+# with pipe. If no error occurs the termios option was not applied to the pipe,
+# thus the test succeeded.
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts -T 1 STDIO,echo=0 EXEC:cat"
+echo "$CMD0" >$td/test$N.sh
+chmod a+x $td/test$N.sh
+printf "test $F_n $TEST... " $N
+$SOCAT /dev/null EXEC:$td/test$N.sh,pty 2>"${te}0"
+rc0=$?
+if [ $rc0 -eq 0 ]; then
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+else
+    $PRINTF "$FAILED\n"
+    echo "$CMD0"
+    cat "${te}0"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+fi
+fi # NUMCOND
+ ;;
+esac
+PORT=$((PORT+1))
+N=$((N+1))
+
+
+# Due to a fallback logic before calling getaddrinfo(), intended to allow use
+# of service (port) names with SCTP, raw socket addresses where resolved with
+# socket type stream, which fails for protocol 6 (TCP)
+# Fixed after 1.7.3.3
+NAME=IP_SENDTO_6
+case "$TESTS" in
+*%$N%*|*%functions%*|*%bugs%*|*%socket%*|*%rawip%*|*%rawip4%*|*%$NAME%*)
+TEST="$NAME: IP-SENDTO::6 passes getaddrinfo()"
+# invoke socat with address IP-SENDTO:*:6; when this does not fail with
+# "ai_socktype not supported", the test succeeded
+if ! eval $NUMCOND; then :; else
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+CMD0="$TRACE $SOCAT $opts -u /dev/null IP-SENDTO:127.0.0.1:6"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0"
+if ! grep -q "ai_socktype not supported" ${te}0; then
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+else
+    $PRINTF "$FAILED\n"
+    echo "$CMD0"
+    cat "${te}0"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+fi
+fi # NUMCOND
+ ;;
+esac
+N=$((N+1))
+
+
+# test if the multiple EOF messages are fixed
+NAME=MULTIPLE_EOF
+case "$TESTS" in
+*%$N%*|*%functions%*|*%bugs%*|*%unix%*|*%socket%*|*%$NAME%*)
+TEST="$NAME: multiple EOF messages"
+# start two processes, connected via UNIX socket. The listener gets EOF from local address immediately; the second process then sends data. If the listener reports "socket 1 (fd .*) is at EOF" only once, the test succeeded
+if ! eval $NUMCOND; then :; else
+ts="$td/test$N.sock"
+tf="$td/test$N.stdout"
+te="$td/test$N.stderr"
+tdiff="$td/test$N.diff"
+da="test$N $(date) $RANDOM"
+CMD0="$TRACE $SOCAT $opts -d -d UNIX-LISTEN:$ts /dev/null"
+CMD1="$TRACE $SOCAT $opts -d -d - UNIX-CONNECT:$ts"
+printf "test $F_n $TEST... " $N
+$CMD0 >/dev/null 2>"${te}0" &
+pid0=$!
+waitunixport $ts 1
+echo "$da" |$CMD1 >"${tf}1" 2>"${te}1"
+rc1=$?
+kill $pid0 2>/dev/null; wait
+if [ $(grep "socket 2 (fd .*) is at EOF" ${te}0 |wc -l) -eq 1 ]; then
+    $PRINTF "$OK\n"
+    numOK=$((numOK+1))
+else
+    $PRINTF "$FAILED\n"
+    echo "$CMD0 &"
+    echo "$CMD1"
+    cat "${te}0"
+    cat "${te}1"
+    numFAIL=$((numFAIL+1))
+    listFAIL="$listFAIL $N"
+fi
+fi # NUMCOND
+ ;;
 esac
 N=$((N+1))
 
