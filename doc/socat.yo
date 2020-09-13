@@ -506,9 +506,8 @@ label(ADDRESS_OPENSSL_CONNECT)dit(bf(tt(OPENSSL:<host>:<port>)))
    Option groups: link(FD)(GROUP_FD),link(SOCKET)(GROUP_SOCKET),link(IP4)(GROUP_IP4),link(IP6)(GROUP_IP6),link(TCP)(GROUP_TCP),link(OPENSSL)(GROUP_OPENSSL),link(RETRY)(GROUP_RETRY) nl()
    Useful options:
    link(cipher)(OPTION_OPENSSL_CIPHERLIST),
-   link(method)(OPTION_OPENSSL_METHOD),
    link(verify)(OPTION_OPENSSL_VERIFY),
-   link(commonname)(OPTION_OPENSSL_COMMONNAME)
+   link(commonname)(OPTION_OPENSSL_COMMONNAME),
    link(cafile)(OPTION_OPENSSL_CAFILE),
    link(capath)(OPTION_OPENSSL_CAPATH),
    link(certificate)(OPTION_OPENSSL_CERTIFICATE),
@@ -535,9 +534,8 @@ label(ADDRESS_OPENSSL_LISTEN)dit(bf(tt(OPENSSL-LISTEN:<port>)))
    Useful options:
    link(pf)(OPTION_PROTOCOL_FAMILY),
    link(cipher)(OPTION_OPENSSL_CIPHERLIST),
-   link(method)(OPTION_OPENSSL_METHOD),
    link(verify)(OPTION_OPENSSL_VERIFY),
-   link(commonname)(OPTION_OPENSSL_COMMONNAME)
+   link(commonname)(OPTION_OPENSSL_COMMONNAME),
    link(cafile)(OPTION_OPENSSL_CAFILE),
    link(capath)(OPTION_OPENSSL_CAPATH),
    link(certificate)(OPTION_OPENSSL_CERTIFICATE),
@@ -634,7 +632,7 @@ label(ADDRESS_READLINE)dit(bf(tt(READLINE)))
 label(ADDRESS_SCTP_CONNECT)dit(bf(tt(SCTP-CONNECT:<host>:<port>)))
    Establishes an SCTP stream connection to the specified <host> [link(IP
    address)(TYPE_IP_ADDRESS)] and <port> [link(TCP service)(TYPE_TCP_SERVICE)]
-   using TCP/IP version 4 or 6 depending on address specification, name
+   using IP version 4 or 6 depending on address specification, name
    resolution, or option link(pf)(OPTION_PROTOCOL_FAMILY).nl()
    Option groups: link(FD)(GROUP_FD),link(SOCKET)(GROUP_SOCKET),link(IP4)(GROUP_IP4),link(IP6)(GROUP_IP6),link(SCTP)(GROUP_SCTP),link(CHILD)(GROUP_CHILD),link(RETRY)(GROUP_RETRY) nl()
    Useful options:
@@ -661,8 +659,8 @@ label(ADDRESS_SCTP6_CONNECT)dit(bf(tt(SCTP6-CONNECT:<host>:<port>)))
    Like link(SCTP-CONNECT)(ADDRESS_SCTP_CONNECT), but only supports IPv6 protocol.nl()
    Option groups: link(FD)(GROUP_FD),link(SOCKET)(GROUP_SOCKET),link(IP6)(GROUP_IP6),link(SCTP)(GROUP_SCTP),link(CHILD)(GROUP_CHILD),link(RETRY)(GROUP_RETRY) nl()
 label(ADDRESS_SCTP_LISTEN)dit(bf(tt(SCTP-LISTEN:<port>)))
-   Listens on <port> [link(TCP service)(TYPE_TCP_SERVICE)] and accepts a
-   TCP/IP connection. The IP version is 4 or the one specified with
+   Listens on <port> [link(TCP service)(TYPE_TCP_SERVICE)] and accepts an
+   SCTP connection. The IP version is 4 or the one specified with
    address option link(pf)(OPTION_PROTOCOL_FAMILY), socat option
    (link(-4)(option_4), link(-6)(option_6)), or environment variable link(SOCAT_DEFAULT_LISTEN_IP)(ENV_SOCAT_DEFAULT_LISTEN_IP).
    Note that opening
@@ -2266,8 +2264,8 @@ startdit()
 label(OPTION_RANGE)dit(bf(tt(range=<address-range>)))
    After accepting a connection, tests if the peer is within em(range). For
    IPv4 addresses, address-range takes the form address/bits, e.g.
-   10.0.0.0/8, or address:mask, e.g. 10.0.0.0:255.0.0.0 (link(example)(EXAMPLE_OPTION_RANGE)); for IPv6, it is [ip6-address/bits], e.g. [::1/128].
-   If the client address does not match, socat() issues a warning and keeps
+   10.0.0.0/8, or address:mask, e.g. 10.0.0.0:255.0.0.0 (link(example)(EXAMPLE_OPTION_RANGE)); for IPv6, it is [ip6-address]/bits, e.g. [::1]/128.
+   If the client address does not match, socat() refuses the connection attempt, issues a warning, and keeps
    listening/receiving.
 label(OPTION_TCPWRAPPERS)dit(bf(tt(tcpwrap[=<name>])))
    Uses Wietse Venema's libwrap (tcpd) library to determine
@@ -2633,17 +2631,19 @@ label(OPTION_OPENSSL_CIPHERLIST)dit(bf(tt(cipher=<cipherlist>)))
    Note that the peer must support the selected property, or the negotiation
    will fail.
 label(OPTION_OPENSSL_METHOD)dit(bf(tt(method=<ssl-method>)))
+   This option is based on deprecated functions and is only available when
+   socat() was build with option tt(--with-openssl-method).
    Sets the protocol version to be used. Valid strings (not case sensitive)
    are:  
    startdit()
    dit(tt(SSL2)) Select SSL protocol version 2.
    dit(tt(SSL3)) Select SSL protocol version 3.
-   dit(tt(SSL23)) Select the best available SSL or TLS protocol. This is the default when
-   this option is not provided.
+   dit(tt(SSL23)) Select the best available SSL or TLS protocol.
    dit(tt(TLS1)) Select TLS protocol version 1.
    dit(tt(TLS1.1)) Select TLS protocol version 1.1.
    dit(tt(TLS1.2)) Select TLS protocol version 1.2.
-   dit(tt(DTLS1)) Select DTLS protocol version 1.
+   When this option is not provided OpenSSL negotiates the mothod with its
+   peer.
    enddit()
 label(OPTION_OPENSSL_VERIFY)dit(bf(tt(verify=<bool>)))
    Controls check of the peer's certificate. Default is 1 (true). Disabling
@@ -3559,4 +3559,4 @@ Socat() home page lurl(http://www.dest-unreach.org/socat/)
 label(AUTHOR)
 manpageauthor()
 
-Gerhard Rieger <rieger@dest-unreach.org>
+Gerhard Rieger <rieger@dest-unreach.org> and contributors

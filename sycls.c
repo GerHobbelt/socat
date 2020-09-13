@@ -1364,7 +1364,7 @@ int Pause(void) {
    return retval;
 }
 
-#if WITH_IP4 || WITH_IP6
+#if ( _WITH_IP4 || _WITH_IP6 ) && HAVE_GETHOSTBYNAME
 struct hostent *Gethostbyname(const char *name) {
    struct hostent *hent;
    Debug1("gethostbyname(\"%s\")", name);
@@ -1380,7 +1380,7 @@ struct hostent *Gethostbyname(const char *name) {
    }
    return hent;
 }
-#endif /* WITH_IP4 || WITH_IP6 */
+#endif /* ( _WITH_IP4 || _WITH_IP6 ) && HAVE_GETHOSTBYNAME */
 
 #if (_WITH_IP4 || _WITH_IP6) && HAVE_GETADDRINFO
 int Getaddrinfo(const char *node, const char *service,
@@ -1472,10 +1472,18 @@ int Tcgetattr(int fd, struct termios *termios_p) {
       cp += sprintf(cp, "%02x,", termios_p->c_cc[i]);
    }
    sprintf(cp, "%02x", termios_p->c_cc[i]);
+#if HAVE_STRUCT_TERMIOS_C_ISPEED && HAVE_STRUCT_TERMIOS_C_OSPEED
+   Debug8("tcgetattr(, {%08x,%08x,%08x,%08x, "F_speed","F_speed", %s}) -> %d",
+	  termios_p->c_iflag, termios_p->c_oflag,
+	  termios_p->c_cflag, termios_p->c_lflag,
+	  termios_p->c_ispeed, termios_p->c_ospeed,
+	  chars, result);
+#else
    Debug6("tcgetattr(, {%08x,%08x,%08x,%08x,%s}) -> %d",
 	  termios_p->c_iflag, termios_p->c_oflag,
 	  termios_p->c_cflag, termios_p->c_lflag, 
 	  chars, result);
+#endif
    errno = _errno;
    return result;
 }
@@ -1490,9 +1498,18 @@ int Tcsetattr(int fd, int optional_actions, struct termios *termios_p) {
       cp += sprintf(cp, "%02x,", termios_p->c_cc[i]);
    }
    sprintf(cp, "%02x", termios_p->c_cc[i]);
+#if HAVE_STRUCT_TERMIOS_C_ISPEED && HAVE_STRUCT_TERMIOS_C_OSPEED
+   Debug9("tcsetattr(%d, %d, {%08x,%08x,%08x,%08x, "F_speed","F_speed", %s})",
+	  fd, optional_actions,
+	  termios_p->c_iflag, termios_p->c_oflag,
+	  termios_p->c_cflag, termios_p->c_lflag,
+	  termios_p->c_ispeed, termios_p->c_ospeed,
+	  chars);
+#else
    Debug7("tcsetattr(%d, %d, {%08x,%08x,%08x,%08x,%s})", fd, optional_actions,
 	  termios_p->c_iflag, termios_p->c_oflag,
 	  termios_p->c_cflag, termios_p->c_lflag, chars);
+#endif
    result = tcsetattr(fd, optional_actions, termios_p);
    _errno = errno;
    Debug1("tcsetattr() -> %d", result);

@@ -144,9 +144,9 @@ static int applyopt_offset(struct single *xfd, struct opt *opt);
    binary search! */
 /* NULL terminated */
 const struct optname optionnames[] = {
-#if HAVE_RESOLV_H
+#if HAVE_RESOLV_H && WITH_RES_AAONLY
 	IF_IP     ("aaonly",	&opt_res_aaonly)
-#endif /* HAVE_RESOLV_H */
+#endif
 #ifdef TCP_ABORT_THRESHOLD  /* HP_UX */
 	IF_TCP    ("abort-threshold",	&opt_tcp_abort_threshold)
 #endif
@@ -790,7 +790,7 @@ const struct optname optionnames[] = {
 	IF_IP6    ("ipv6only",	&opt_ipv6_v6only)
 #endif
 	IF_TERMIOS("isig",	&opt_isig)
-#if defined(HAVE_TERMIOS_ISPEED) && defined(ISPEED_OFFSET) && (ISPEED_OFFSET != -1)
+#if HAVE_TERMIOS_ISPEED
 	IF_TERMIOS("ispeed",	&opt_ispeed)
 #endif
 	IF_TERMIOS("istrip",	&opt_istrip)
@@ -879,7 +879,9 @@ const struct optname optionnames[] = {
 #ifdef IP_ADD_MEMBERSHIP
 	IF_IP     ("membership",	&opt_ip_add_membership)
 #endif
+#if WITH_OPENSSL_METHOD
 	IF_OPENSSL("method",	&opt_openssl_method)
+#endif
 	IF_TERMIOS("min",	&opt_vmin)
 	IF_ANY    ("mode",	&opt_perm)
 #ifdef TCP_MAXSEG
@@ -1109,11 +1111,13 @@ const struct optname optionnames[] = {
 	IF_OPENSSL("openssl-fips",	&opt_openssl_fips)
 #endif
 	IF_OPENSSL("openssl-key",	&opt_openssl_key)
+#if WITH_OPENSSL_METHOD
 	IF_OPENSSL("openssl-method",	&opt_openssl_method)
+#endif
 	IF_OPENSSL("openssl-pseudo",	&opt_openssl_pseudo)
 	IF_OPENSSL("openssl-verify",	&opt_openssl_verify)
 	IF_TERMIOS("opost",	&opt_opost)
-#if defined(HAVE_TERMIOS_ISPEED) && defined(OSPEED_OFFSET) && (OSPEED_OFFSET != -1)
+#if HAVE_TERMIOS_OSPEED
 	IF_TERMIOS("ospeed",	&opt_ospeed)
 #endif
 	IF_ANY    ("owner",	&opt_user)
@@ -1152,9 +1156,9 @@ const struct optname optionnames[] = {
 #endif
 	/*IF_IPAPP("port",	&opt_port)*/
 	IF_TUN    ("portsel",	&opt_iff_portsel)
-#if HAVE_RESOLV_H
+#if HAVE_RESOLV_H && WITH_RES_PRIMARY
 	IF_IP     ("primary",	&opt_res_primary)
-#endif /* HAVE_RESOLV_H */
+#endif
 #ifdef SO_PRIORITY
 	IF_SOCKET ("priority",	&opt_so_priority)
 #endif
@@ -1249,12 +1253,16 @@ const struct optname optionnames[] = {
 	IF_TERMIOS("reprint",	&opt_vreprint)
 #endif
 #if HAVE_RESOLV_H
+#  if WITH_AA_ONLY
 	IF_IP     ("res-aaonly",	&opt_res_aaonly)
+#  endif
 	IF_IP     ("res-debug",	&opt_res_debug)
 	IF_IP     ("res-defnames",	&opt_res_defnames)
 	IF_IP     ("res-dnsrch",	&opt_res_dnsrch)
 	IF_IP     ("res-igntc",	&opt_res_igntc)
+#  if WITH_RES_PRIMARY
 	IF_IP     ("res-primary",	&opt_res_primary)
+#  endif
 	IF_IP     ("res-recurse",	&opt_res_recurse)
 	IF_IP     ("res-stayopen",	&opt_res_stayopen)
 	IF_IP     ("res-usevc",	&opt_res_usevc)
@@ -3509,252 +3517,41 @@ int applyopts(int fd, struct opt *opts, enum e_phase phase) {
 
 #if WITH_TERMIOS
       } else if (opt->desc->func == OFUNC_TERMIOS_FLAG) {
-#if 0
-	 union {
-	    struct termios termarg;
-	    tcflag_t flags[4];
-	 } tdata;
-	 if (Tcgetattr(fd, &tdata.termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-	 if (opt->value.u_bool) {
-	    tdata.flags[opt->desc->major] |= opt->desc->minor;
-	 } else {
-	    tdata.flags[opt->desc->major] &= ~opt->desc->minor;
-	 }
-	 if (Tcsetattr(fd, TCSADRAIN, &tdata.termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-#else
 	 if (xiotermiosflag_applyopt(fd, opt) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
-#endif
 
       } else if (opt->desc->func == OFUNC_TERMIOS_VALUE) {
-	 union {
-	    struct termios termarg;
-	    tcflag_t flags[4];
-	 } tdata;
 	 if (((opt->value.u_uint << opt->desc->arg3) & opt->desc->minor) !=
 	     (opt->value.u_uint << opt->desc->arg3)) {
 	    Error2("option %s: invalid value %u",
 		   opt->desc->defname, opt->value.u_uint);
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
-	 if (Tcgetattr(fd, &tdata.termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-
-	 tdata.flags[opt->desc->major] &= ~opt->desc->minor;
-	 tdata.flags[opt->desc->major] |=
-	    ((opt->value.u_uint << opt->desc->arg3) & opt->desc->minor);
-	 if (Tcsetattr(fd, TCSADRAIN, &tdata.termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
+	 if (xiotermios_value(fd, opt->desc->major, opt->desc->minor,
+			      (opt->value.u_uint << opt->desc->arg3) & opt->desc->minor) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
 
       } else if (opt->desc->func == OFUNC_TERMIOS_PATTERN) {
-	 union {
-	    struct termios termarg;
-	    tcflag_t flags[4];
-	 } tdata;
-	 if (Tcgetattr(fd, &tdata.termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
+	 if (xiotermios_value(fd, opt->desc->major,  opt->desc->arg3, opt->desc->minor) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-	 tdata.flags[opt->desc->major] &= ~opt->desc->arg3;
-	 tdata.flags[opt->desc->major] |= opt->desc->minor;
-	 if (Tcsetattr(fd, TCSADRAIN, &tdata.termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR;++opt;  continue;
 	 }
 
       } else if (opt->desc->func == OFUNC_TERMIOS_CHAR) {
-	 struct termios termarg;
-	 if (Tcgetattr(fd, &termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-	 termarg.c_cc[opt->desc->major] = opt->value.u_byte;
-	 if (Tcsetattr(fd, TCSADRAIN, &termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &termarg, strerror(errno));
+	 if (xiotermios_char(fd, opt->desc->major, opt->value.u_byte) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
 
 #ifdef HAVE_TERMIOS_ISPEED
       } else if (opt->desc->func == OFUNC_TERMIOS_SPEED) {
-	 union {
-	    struct termios termarg;
-	    speed_t speeds[sizeof(struct termios)/sizeof(speed_t)];
-	 } tdata;
-	 if (Tcgetattr(fd, &tdata.termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-	 tdata.speeds[opt->desc->major] = opt->value.u_uint;
-	 if (Tcsetattr(fd, TCSADRAIN, &tdata.termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &tdata.termarg, strerror(errno));
+	 if (xiotermios_speed(fd, opt->desc->major, opt->value.u_uint) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
 #endif /* HAVE_TERMIOS_ISPEED */
 
       } else if (opt->desc->func == OFUNC_TERMIOS_SPEC) {
-	 struct termios termarg;
-	 if (Tcgetattr(fd, &termarg) < 0) {
-	    Error3("tcgetattr(%d, %p): %s",
-		   fd, &termarg, strerror(errno));
-	    opt->desc = ODESC_ERROR; ++opt; continue;
-	 }
-	 switch (opt->desc->optcode) {
-	 case OPT_RAW:
-	    termarg.c_iflag &=
-	      ~(IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK|ISTRIP|INLCR|IGNCR|ICRNL|IXON|IXOFF
-#ifdef IUCLC
-		|IUCLC
-#endif
-		|IXANY|IMAXBEL);
-	    termarg.c_iflag |= (0);
-	    termarg.c_oflag &= ~(OPOST);
-	    termarg.c_oflag |= (0);
-	    termarg.c_cflag &= ~(0);
-	    termarg.c_cflag |= (0);
-	    termarg.c_lflag &= ~(ISIG|ICANON
-#ifdef XCASE
-				 |XCASE
-#endif
-				 );
-	    termarg.c_lflag |= (0);
-	    termarg.c_cc[VMIN] = 1;
-	    termarg.c_cc[VTIME] = 0;
-	    break;
-	 case OPT_TERMIOS_RAWER:
-	    termarg.c_iflag = 0;
-	    termarg.c_oflag = 0;
-	    termarg.c_lflag = 0;
-	    termarg.c_cflag = (CS8);
-	    termarg.c_cc[VMIN] = 1;
-	    termarg.c_cc[VTIME] = 0;
-	    break;
-	 case OPT_SANE:
-	    /* cread -ignbrk brkint  -inlcr  -igncr  icrnl
-              -ixoff  -iuclc  -ixany  imaxbel opost -olcuc -ocrnl
-              onlcr -onocr -onlret -ofill -ofdel nl0 cr0 tab0 bs0
-              vt0 ff0 isig icanon iexten echo echoe echok -echonl
-              -noflsh -xcase -tostop -echoprt echoctl echoke, and
-              also  sets  all special characters to their default
-              values.
-*/
-	    termarg.c_iflag &= ~(IGNBRK|INLCR|IGNCR|IXOFF
-#ifdef IUCLC
-				 |IUCLC
-#endif
-				 |IXANY);
-	    termarg.c_iflag |= (BRKINT|ICRNL|IMAXBEL);
-	    termarg.c_oflag &= ~(0	/* for canonical reasons */
-#ifdef OLCUC
-				 |OLCUC
-#endif
-#ifdef OCRNL
-				 |OCRNL
-#endif
-#ifdef ONOCR
-				 |ONOCR
-#endif
-#ifdef ONLRET
-				 |ONLRET
-#endif
-#ifdef OFILL
-				 |OFILL
-#endif
-#ifdef OFDEL
-				 |OFDEL
-#endif
-#ifdef NLDLY
-				 |NLDLY
-#endif
-#ifdef CRDLY
-				 |CRDLY
-#endif
-#ifdef TABDLY
-				 |TABDLY
-#endif
-#ifdef BSDLY
-				 |BSDLY
-#endif
-#ifdef VTDLY
-				 |VTDLY
-#endif
-#ifdef FFDLY
-				 |FFDLY
-#endif
-				 );
-	    termarg.c_oflag |= (OPOST|ONLCR
-#ifdef NL0
-				|NL0
-#endif
-#ifdef CR0
-				|CR0
-#endif
-#ifdef TAB0
-				|TAB0
-#endif
-#ifdef BS0
-				|BS0
-#endif
-#ifdef VT0
-				|VT0
-#endif
-#ifdef FF0
-				|FF0
-#endif
-				);
-	    termarg.c_cflag &= ~(0);
-	    termarg.c_cflag |= (CREAD);
-	    termarg.c_lflag &= ~(ECHONL|NOFLSH
-#ifdef XCASE
-				 |XCASE
-#endif
-				 |TOSTOP
-#ifdef ECHOPRT
-				 |ECHOPRT
-#endif
-				 );
-	    termarg.c_lflag |= (ISIG|ICANON|IEXTEN|ECHO|ECHOE|ECHOK|ECHOCTL|ECHOKE);
-	    /*! "sets characters to their default values... - which? */
-	    break;
-	 case OPT_TERMIOS_CFMAKERAW:
-#if HAVE_CFMAKERAW
-	    cfmakeraw(&termarg);
-#else
-	    /* these setting follow the Linux documenation of cfmakeraw */
-	    termarg.c_iflag &=
-	      ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-	    termarg.c_oflag &= ~(OPOST);
-	    termarg.c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
-	    termarg.c_cflag &= ~(CSIZE|PARENB);
-	    termarg.c_cflag |= (CS8);
-#endif
-	    break;
-	 default:
-	    Error("TERMIOS option not handled - internal error?");
-	 }
-	 if (Tcsetattr(fd, TCSADRAIN, &termarg) < 0) {
-	    Error3("tcsetattr(%d, TCSADRAIN, %p): %s",
-		   fd, &termarg, strerror(errno));
+	 if (xiotermios_spec(fd, opt->desc->optcode) < 0) {
 	    opt->desc = ODESC_ERROR; ++opt; continue;
 	 }
 
@@ -3782,7 +3579,13 @@ int applyopts(int fd, struct opt *opts, enum e_phase phase) {
       opt->desc = ODESC_DONE;
       ++opt;
    }
-   return 0;
+
+#if WITH_TERMIOS
+   if (phase == PH_FD) {
+      xiotermios_flush(fd);
+   }
+#endif /* WITH_TERMIOS */
+  return 0;
 }
 
 /* applies to fd all options belonging to phases */

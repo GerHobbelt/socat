@@ -74,11 +74,19 @@ const struct optdesc opt_ip_recvdstaddr = { "ip-recvdstaddr", "recvdstaddr",OPT_
 const struct optdesc opt_ip_recvif = { "ip-recvif", "recvdstaddrif",OPT_IP_RECVIF, GROUP_SOCK_IP, PH_PASTSOCKET, TYPE_INT, OFUNC_SOCKOPT, SOL_IP, IP_RECVIF };
 #endif
 
+#if WITH_RES_DEPRECATED
+#  define WITH_RES_AAONLY 1
+#  define WITH_RES_PRIMARY 1
+#endif /* WITH_RES_DEPRECATED */
 #if HAVE_RESOLV_H
 const struct optdesc opt_res_debug    = { "res-debug",    NULL,       OPT_RES_DEBUG,    GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_DEBUG };
+#if WITH_RES_AAONLY
 const struct optdesc opt_res_aaonly   = { "res-aaonly",   "aaonly",   OPT_RES_AAONLY,   GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_AAONLY };
+#endif
 const struct optdesc opt_res_usevc    = { "res-usevc",    "usevc",    OPT_RES_USEVC,    GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_USEVC };
+#if WITH_RES_PRIMARY
 const struct optdesc opt_res_primary  = { "res-primary",  "primary",  OPT_RES_PRIMARY,  GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_PRIMARY };
+#endif
 const struct optdesc opt_res_igntc    = { "res-igntc",    "igntc",    OPT_RES_IGNTC,    GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_IGNTC };
 const struct optdesc opt_res_recurse  = { "res-recurse",  "recurse",  OPT_RES_RECURSE,  GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_RECURSE };
 const struct optdesc opt_res_defnames = { "res-defnames", "defnames", OPT_RES_DEFNAMES, GROUP_SOCK_IP, PH_INIT, TYPE_BOOL, OFUNC_OFFSET_MASKS, XIO_OFFSETOF(para.socket.ip.res_opts), XIO_SIZEOF(para.socket.ip.res_opts), RES_DEFNAMES };
@@ -167,30 +175,8 @@ int xiogetaddrinfo(const char *node, const char *service,
    /* the resolver functions might handle numeric forms of node names by
       reverse lookup, that's not what we want.
       So we detect these and handle them specially */
-   if (node && isdigit(node[0]&0xff)) {
-#if HAVE_GETADDRINFO
-      hints.ai_flags |= AI_NUMERICHOST;
-#endif /* HAVE_GETADDRINFO */
-      if (family == PF_UNSPEC) {
-	 family = PF_INET;
-#if HAVE_GETADDRINFO
-      } else if (family == PF_INET6) {
-	 /* map "explicitely" into IPv6 address space; getipnodebyname() does
-	    this with AI_V4MAPPED, but not getaddrinfo() */
-	 if ((numnode = Malloc(strlen(node)+7+1)) == NULL) {
-#if HAVE_RESOLV_H
-	    if (res_opts0 | res_opts1) {
-	       _res.options = (_res.options & (~res_opts0&~res_opts1) |
-			       save_res_opts& ( res_opts0| res_opts1));
-	    }
-#endif
-	    return STAT_NORETRY;
-	 }
-	 sprintf(numnode, "::ffff:%s", node);
-	 node = numnode;
-	 hints.ai_flags |= AI_NUMERICHOST;
-#endif /* HAVE_GETADDRINFO */
-      }
+   if (0) { 	/* for canonical reasons */
+      ;
 #if WITH_IP6
    } else if (node && node[0] == '[' && node[(nodelen=strlen(node))-1]==']') {
       if ((numnode = Malloc(nodelen-1)) == NULL) {
