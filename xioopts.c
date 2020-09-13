@@ -296,7 +296,7 @@ const struct optname optionnames[] = {
 #if WITH_EXT2 && defined(EXT2_COMPR_FL)
 	IF_ANY    ("compr",	&opt_ext2_compr)
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_COMP)
 	IF_OPENSSL("compress",	&opt_openssl_compress)
 #endif
 #ifdef TCP_CONN_ABORT_THRESHOLD  /* HP_UX */
@@ -375,6 +375,7 @@ const struct optname optionnames[] = {
 #endif
 	IF_OPENSSL("dh",	&opt_openssl_dhparam)
 	IF_OPENSSL("dhparam",	&opt_openssl_dhparam)
+	IF_OPENSSL("dhparams",	&opt_openssl_dhparam)
 #ifdef O_DIRECT
 	IF_OPEN   ("direct",	&opt_o_direct)
 #endif
@@ -1098,10 +1099,11 @@ const struct optname optionnames[] = {
 	IF_OPENSSL("openssl-certificate",	&opt_openssl_certificate)
 	IF_OPENSSL("openssl-cipherlist",	&opt_openssl_cipherlist)
 	IF_OPENSSL("openssl-commonname",	&opt_openssl_commonname)
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_COMP)
 	IF_OPENSSL("openssl-compress",	&opt_openssl_compress)
 #endif
 	IF_OPENSSL("openssl-dhparam",	&opt_openssl_dhparam)
+	IF_OPENSSL("openssl-dhparams",	&opt_openssl_dhparam)
 	IF_OPENSSL("openssl-egd",	&opt_openssl_egd)
 #if WITH_FIPS
 	IF_OPENSSL("openssl-fips",	&opt_openssl_fips)
@@ -1202,9 +1204,6 @@ const struct optname optionnames[] = {
 	IF_SOCKET ("rcvbuf-late",	&opt_so_rcvbuf_late)
 #ifdef SO_RCVLOWAT
 	IF_SOCKET ("rcvlowat",	&opt_so_rcvlowat)
-#endif
-#ifdef SO_RCVTIMEO
-	IF_SOCKET ("rcvtimeo",	&opt_so_rcvtimeo)
 #endif
 	IF_OPEN   ("rdonly",	&opt_o_rdonly)
 	IF_OPEN   ("rdwr",	&opt_o_rdwr)
@@ -1374,9 +1373,6 @@ const struct optname optionnames[] = {
 #ifdef SO_SNDLOWAT
 	IF_SOCKET ("sndlowat",	&opt_so_sndlowat)
 #endif
-#ifdef SO_SNDTIMEO
-	IF_SOCKET ("sndtimeo",	&opt_so_sndtimeo)
-#endif
 #ifdef SO_ACCEPTCONN /* AIX433 */
 	IF_SOCKET ("so-acceptconn",	&opt_so_acceptconn)
 #endif /* SO_ACCEPTCONN */
@@ -1437,9 +1433,6 @@ const struct optname optionnames[] = {
 #ifdef SO_RCVLOWAT
 	IF_SOCKET ("so-rcvlowat",	&opt_so_rcvlowat)
 #endif
-#ifdef SO_RCVTIMEO
-	IF_SOCKET ("so-rcvtimeo",	&opt_so_rcvtimeo)
-#endif
 	IF_SOCKET ("so-reuseaddr",	&opt_so_reuseaddr)
 #ifdef SO_REUSEPORT	/* AIX 4.3.3 */
 	IF_SOCKET ("so-reuseport",	&opt_so_reuseport)
@@ -1457,9 +1450,6 @@ const struct optname optionnames[] = {
 	IF_SOCKET ("so-sndbuf-late",	&opt_so_sndbuf_late)
 #ifdef SO_SNDLOWAT
 	IF_SOCKET ("so-sndlowat",	&opt_so_sndlowat)
-#endif
-#ifdef SO_SNDTIMEO
-	IF_SOCKET ("so-sndtimeo",	&opt_so_sndtimeo)
 #endif
 #ifdef SO_TIMESTAMP
 	IF_SOCKET ("so-timestamp",	&opt_so_timestamp)
@@ -4012,7 +4002,7 @@ int applyopts_single(struct single *xfd, struct opt *opts, enum e_phase phase) {
 	   void *masks = (char *)xfd + opt->desc->major;
 	   size_t masksize = opt->desc->minor;
 	   unsigned long bit = opt->desc->arg3;
-	   switch (masksize) {
+	   switch (masksize>>1) {
 	   case sizeof(uint16_t):
 	      if (opt->value.u_bool) {
 		 ((uint16_t *)masks)[0] |= bit;

@@ -110,7 +110,7 @@ const struct optdesc opt_openssl_cafile      = { "openssl-cafile",     "cafile",
 const struct optdesc opt_openssl_capath      = { "openssl-capath",     "capath", OPT_OPENSSL_CAPATH,      GROUP_OPENSSL, PH_SPEC, TYPE_FILENAME, OFUNC_SPEC };
 const struct optdesc opt_openssl_egd         = { "openssl-egd",        "egd",    OPT_OPENSSL_EGD,         GROUP_OPENSSL, PH_SPEC, TYPE_FILENAME, OFUNC_SPEC };
 const struct optdesc opt_openssl_pseudo      = { "openssl-pseudo",     "pseudo", OPT_OPENSSL_PSEUDO,      GROUP_OPENSSL, PH_SPEC, TYPE_BOOL,     OFUNC_SPEC };
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_COMP)
 const struct optdesc opt_openssl_compress    = { "openssl-compress",   "compress", OPT_OPENSSL_COMPRESS,  GROUP_OPENSSL, PH_SPEC, TYPE_STRING,   OFUNC_SPEC };
 #endif
 #if WITH_FIPS
@@ -147,7 +147,7 @@ int xio_reset_fips_mode(void) {
 static void openssl_conn_loginfo(SSL *ssl) {
    Notice1("SSL connection using %s", SSL_get_cipher(ssl));
 
-#if OPENSSL_VERSION_NUMBER >= 0x00908000L
+#if OPENSSL_VERSION_NUMBER >= 0x00908000L && !defined(OPENSSL_NO_COMP)
    {
       const COMP_METHOD *comp, *expansion;
 
@@ -1080,7 +1080,7 @@ cont_out:
       }
    }
 
-   /* set pre ssl-connect options */
+   /* set pre openssl-connect options */
    /* SSL_CIPHERS */
    if (ci_str != NULL) {
       if (sycSSL_CTX_set_cipher_list(*ctx, ci_str) <= 0) {
@@ -1119,13 +1119,23 @@ static int openssl_SSL_ERROR_SSL(int level, const char *funcname) {
 
    while (e = ERR_get_error()) {
       Debug1("ERR_get_error(): %lx", e);
-      if (e == ((ERR_LIB_RAND<<24)|
+      if
+	 (
+#if defined(OPENSSL_IS_BORINGSSL)
+	  0  /* BoringSSL's RNG always succeeds. */
+#elif defined(HAVE_RAND_status)
+	  ERR_GET_LIB(e) == ERR_LIB_RAND && RAND_status() != 1
+#else
+	  e == ((ERR_LIB_RAND<<24)|
 #if defined(RAND_F_RAND_BYTES)
 		(RAND_F_RAND_BYTES<<12)|
 #else
 		(RAND_F_SSLEAY_RAND_BYTES<<12)|
 #endif
-		(RAND_R_PRNG_NOT_SEEDED)) /*0x24064064*/) {
+		(RAND_R_PRNG_NOT_SEEDED)) /*0x24064064*/
+#endif
+	  )
+      {
 	 Error("too few entropy; use options \"egd\" or \"pseudo\"");
 	 stat = STAT_NORETRY;
       } else {
